@@ -1,0 +1,6 @@
+discord_bot_token: 230vzf09df235nzvlkadsf0923v
+discord_bot_client_id: "01234567890123"
+control_channel_id: "12345567890123456"
+control_server_id: "23456789012345"
+ossrs_server_host: your.server.fqdn
+obs_hub_ws_address: localhost:4444
