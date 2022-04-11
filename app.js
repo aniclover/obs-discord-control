@@ -29,7 +29,7 @@ client.on('ready', async () => {
 });
 
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isCommand() || interaction.channelId !== CHANNEL_ID) {
+  if (interaction.channelId !== CHANNEL_ID) {
     return;
   }
 
