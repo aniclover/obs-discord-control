@@ -69,9 +69,9 @@ module.exports.CommandManager = class {
   }
   
   async #newStatusBox() {
-    // this.message = await this.channel.send(msgTemplateFn(this.#timestamp(), this.obs));
-    this.#updateEmbed();
     this.message = await this.channel.send({embeds: [statusEmbed], components: [buttonActionRow]})
+    this.#updateEmbed();
+    this.message.edit({embeds: [statusEmbed]})
   }
 
   #updateEmbed() {
@@ -81,8 +81,8 @@ module.exports.CommandManager = class {
       { name: 'RTMP Server', value: 'Not yet implemented' },
       // { name: '\u200B', value: '\u200B' },
       { name: 'OBS Hub', value: `Connected: ${this.obs.isConnected}` },
-      { name: 'Preview Scene', value: `\`${this.obs.previewScene}\``, inline: true },
-      { name: 'Program Scene', value: `\`${this.obs.programScene}\``, inline: true }
+      { name: 'Preview Scene', value: `${this.obs.previewSceneName}\n\`${this.obs.previewSources.map(s=>s.status).join('\n')}\``, inline: true },
+      { name: 'Program Scene', value: `${this.obs.programSceneName}\n\`${this.obs.programSources.map(s=>s.status).join('\n')}\``, inline: true }
     )
   }
   

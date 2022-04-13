@@ -2,16 +2,24 @@ const OBSWebSocket = require('obs-websocket-js')
 
 const RECONNECT_INTERVAL_MS = 5000
 
+const MIN_PRIORITY_UPDATE_INTERVAL_MS = 1000;
+
 module.exports.ObsManager = class {
   isConnected = false
   obsAddress = null
-  programScene = "unknown"
-  previewScene = "unknown"
+  programSceneName = "unknown"
+  previewSceneName = "unknown"
+  programSceneIndex = -1
+  previewSceneIndex = -1
+  programSources = []
+  previewSources = []
   scenes = []
 
   obs = new OBSWebSocket()
   #reconnectInterval = null
   #priorityUpdateCallback = null
+  #priorityUpdateTimeout = null
+  #lastPriorityUpdateTS = 0
 
   async fetchSceneList() {
     if (!this.isConnected) return;
@@ -25,7 +33,7 @@ module.exports.ObsManager = class {
   async nextPreviewScene() {
     if (!this.isConnected) return;
 
-    let index = this.#findSceneIndex(this.previewScene);
+    let index = this.previewSceneIndex;
     index++;
     if (index < this.scenes.length) {
       this.obs.send("SetPreviewScene", {'scene-name': this.scenes[index].name});
@@ -35,7 +43,7 @@ module.exports.ObsManager = class {
   async prevPreviewScene() {
     if (!this.isConnected) return;
 
-    let index = this.#findSceneIndex(this.previewScene);
+    let index = this.previewSceneIndex;
     index--;
     if (index >= 0) {
       this.obs.send("SetPreviewScene", {'scene-name': this.scenes[index].name});
@@ -65,8 +73,14 @@ module.exports.ObsManager = class {
     
     this.obs.on('ConnectionOpened', () => { this.#onOBSConnected() })
     this.obs.on('ConnectionClosed', () => { this.#onOBSDisconnected() })
-    this.obs.on('SwitchScenes', (data) => { this.programScene = data.sceneName ; this.#priorityUpdate() })
-    this.obs.on('PreviewSceneChanged', (data) => { this.previewScene = data.sceneName; this.#priorityUpdate() })
+    this.obs.on('SwitchScenes', async (data) => {
+      await this.#updateProgramScene(data.sceneName);
+      this.#priorityUpdate();
+    })
+    this.obs.on('PreviewSceneChanged', async (data) => {
+      await this.#updatePreviewScene(data.sceneName)
+      this.#priorityUpdate()
+    })
     this.obs.on('error', err => {
       this.#onOBSError(err)
     })
@@ -75,8 +89,24 @@ module.exports.ObsManager = class {
   }
 
   #priorityUpdate() {
-    if (this.#priorityUpdateCallback != null) {
-      this.#priorityUpdateCallback()
+    if (this.#priorityUpdateCallback === null) {
+      return;
+    }
+
+    clearTimeout(this.#priorityUpdateTimeout);
+    this.#priorityUpdateTimeout = null;
+
+    let nowTS = Date.now();
+    if (nowTS - this.#lastPriorityUpdateTS > MIN_PRIORITY_UPDATE_INTERVAL_MS) {
+      this.#priorityUpdateCallback();
+      this.#lastPriorityUpdateTS = nowTS;
+      // console.log("Immediate priority update at "+this.#lastPriorityUpdateTS);
+    } else {
+      this.#priorityUpdateTimeout = setTimeout( async () => {
+        this.#priorityUpdateCallback();
+        this.#lastPriorityUpdateTS = Date.now();
+        // console.log("Delayed priority update at "+this.#lastPriorityUpdateTS);
+      }, MIN_PRIORITY_UPDATE_INTERVAL_MS)
     }
   }
 
@@ -123,6 +153,35 @@ module.exports.ObsManager = class {
     this.obs.disconnect()
   }
 
+  async #updateProgramScene(name) {
+    this.programSceneName = name;
+    this.programSceneIndex = this.#findSceneIndex(name)
+
+    this.programSources = await this.#fetchSources(name);
+  }
+
+  async #updatePreviewScene(name) {
+    this.previewSceneName = name;
+    this.previewSceneIndex = this.#findSceneIndex(name);
+
+    this.previewSources = await this.#fetchSources(name)
+  }
+
+  async #fetchSources(sceneName) {
+    let response = await this.obs.send('GetSceneItemList', {sceneName: sceneName});
+    let sources = response.sceneItems.filter(s => s.sourceKind==="ffmpeg_source");
+    for (const s of sources) {
+      let vol = await this.obs.send('GetVolume', {source: s.sourceName, useDecibel: true})
+      let {sourceSettings} = await this.obs.send('GetSourceSettings', {sourceName: s.sourceName});
+      // console.log(sourceSettings);
+
+      s.dB = vol.volume;
+      s.muted = vol.muted;
+      s.status = `${s.sourceName}\n${s.dB.toFixed(1)} dB\n${s.muted?"Muted":"Unmuted"}`
+    }
+    return sources;
+  }
+
   #onOBSError(err) {
     if (err.code === 'CONNECTION_ERROR') {
       this.#disconnectOBS()
@@ -137,12 +196,12 @@ module.exports.ObsManager = class {
     clearInterval(this.#reconnectInterval)
     this.isConnected = true
 
-    this.scenes = this.fetchSceneList();
+    this.scenes = await this.fetchSceneList();
     let programScene = await this.obs.send('GetCurrentScene');
-    this.programScene = programScene.name;
+    await this.#updateProgramScene(programScene.name)
     try {
       let previewScene = await this.obs.send('GetPreviewScene');
-      this.previewScene = previewScene.name;  
+      await this.#updatePreviewScene(previewScene.name)
     } catch (err) {
       console.log(err);
     }
@@ -153,8 +212,8 @@ module.exports.ObsManager = class {
     clearInterval(this.#reconnectInterval)
     if (this.isConnected == true) {
       this.isConnected = false
-      this.previewScene = "unknown"
-      this.programScene = "unknown"
+      this.previewSceneName = "unknown"
+      this.programSceneName = "unknown"
       this.#priorityUpdate();
     }
     this.#reconnectInterval = setInterval(() => { this.#connectOBS() }, RECONNECT_INTERVAL_MS)
