@@ -2,7 +2,7 @@ const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { ObsManager } = require('./obs.cjs');
-const { Interaction, Channel, Message, MessageEmbed, MessageActionRow, MessageButton } = require('discord.js');
+const { Interaction, Channel, Message, MessageEmbed, MessageActionRow, MessageButton, MessageSelectMenu, SelectMenuInteraction } = require('discord.js');
 
 const commands = [
   new SlashCommandBuilder()
@@ -16,6 +16,30 @@ const commands = [
       subcommand
         .setName('list_scenes')
         .setDescription('List scenes'))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('target_volume')
+        .setDescription('Set transition target volume')
+        .addNumberOption(option =>
+          option.setName('db')
+            .setDescription('Volume dB')
+            .setRequired(true)))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('preview_volume')
+        .setDescription('Set preview source volume')
+        .addNumberOption(option =>
+          option.setName('db')
+            .setDescription('Volume dB')
+            .setRequired(true)))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('mute_preview')
+        .setDescription('Set mute status of preview source')
+        .addBooleanOption(option =>
+          option.setName('muted')
+            .setDescription('True to mute, false to unmute')
+            .setRequired(true)))
 ];
 
 const STATUSBOX_UPDATE_INTERVAL_MS = 10000;
@@ -25,17 +49,96 @@ const statusEmbed = new MessageEmbed()
   .setColor('#0099ff')
   .setTitle('OBS Hub Status');
 
-const buttonActionRow = new MessageActionRow()
+const programButtonActionRow = new MessageActionRow()
+  .addComponents(
+    new MessageButton()
+      .setCustomId('progPlayPause')
+      .setEmoji('⏯️')
+      .setStyle('DANGER'),
+    new MessageButton()
+      .setCustomId('progReload')
+      .setEmoji('🔃')
+      .setStyle('DANGER'),
+    new MessageButton()
+      .setCustomId('transition')
+      .setEmoji('↔️')
+      .setLabel('T')
+      .setStyle('DANGER'),
+    new MessageButton()
+      .setCustomId('progSofter')
+      .setEmoji('🔈')
+      .setStyle('DANGER'),
+    new MessageButton()
+      .setCustomId('progLouder')
+      .setEmoji('🔊')
+      .setStyle('DANGER')
+  )
+
+const previewButtonActionRow = new MessageActionRow()
+  .addComponents(
+    new MessageButton()
+      .setCustomId('prevPlayPause')
+      .setEmoji('⏯️')
+      .setStyle('PRIMARY'),
+    new MessageButton()
+      .setCustomId('prevReload')
+      .setEmoji('🔃')
+      .setStyle('PRIMARY'),
+    new MessageButton()
+      .setCustomId('prevSofter')
+      .setEmoji('🔈')
+      .setStyle('PRIMARY'),
+    new MessageButton()
+      .setCustomId('prevLouder')
+      .setEmoji('🔊')
+      .setStyle('PRIMARY')
+  )
+
+const sceneButtonActionRow = new MessageActionRow()
   .addComponents(
     new MessageButton()
       .setCustomId('upScene')
       .setEmoji('⬆️')
       .setStyle('PRIMARY'),
-      new MessageButton()
+    new MessageButton()
       .setCustomId('downScene')
       .setEmoji('⬇️')
       .setStyle('PRIMARY')
   )
+
+
+const dbOptions = [
+  { label: '0 dB', value: '0' },
+  { label: '-2.5 dB', value: '-2.5' },
+  { label: '-5 dB', value: '-5' },
+  { label: '-7.5 dB', value: '-7.5' },
+  { label: '-10 dB', value: '-10' },
+  { label: '-12.5 dB', value: '-12.5' },
+  { label: '-15 dB', value: '-15' },
+  { label: '-17.5 dB', value: '-17.5' },
+  { label: '-20 dB', value: '-20' },
+  { label: '-22.5 dB', value: '-22.5' },
+  { label: '-25 dB', value: '-25' },
+  { label: '-27.5 dB', value: '-27.5' },
+  { label: '-30 dB', value: '-30' }
+]
+
+const previewDBSelectRow = new MessageActionRow()
+  .addComponents(
+    new MessageSelectMenu()
+      .setCustomId('selectPreviewDB')
+      .setPlaceholder('Preview dB')
+      .addOptions(dbOptions)
+  )
+
+const programDBSelectRow = new MessageActionRow()
+  .addComponents(
+    new MessageSelectMenu()
+      .setCustomId('selectProgramDB')
+      .setPlaceholder('Program dB')
+      .addOptions(dbOptions)
+  )
+
 
 module.exports.CommandManager = class {
   /** @type {ObsManager} */
@@ -69,7 +172,8 @@ module.exports.CommandManager = class {
   }
   
   async #newStatusBox() {
-    this.message = await this.channel.send({embeds: [statusEmbed], components: [buttonActionRow]})
+    this.message = await this.channel.send({embeds: [statusEmbed],
+      components: [sceneButtonActionRow, previewDBSelectRow, previewButtonActionRow, programDBSelectRow, programButtonActionRow]});
     this.#updateEmbed();
     this.message.edit({embeds: [statusEmbed]})
   }
@@ -80,7 +184,7 @@ module.exports.CommandManager = class {
       // { name: '\u200B', value: '\u200B' },
       { name: 'RTMP Server', value: 'Not yet implemented' },
       // { name: '\u200B', value: '\u200B' },
-      { name: 'OBS Hub', value: `Connected: ${this.obs.isConnected}` },
+      { name: 'OBS Hub', value: `Connected: \`${this.obs.isConnected}\`\nTransition Target Volume: \`${this.obs.transitionTargetDB} dB\`\nTransition Crossfade: \`${this.obs.transitionCrossfadeDurationSecs} sec\`\nTransition Visual Delay: \`${this.obs.transitionVisualDelaySecs} sec\`` },
       { name: 'Preview Scene', value: `${this.obs.previewSceneName}\n\`${this.obs.previewSources.map(s=>s.status).join('\n')}\``, inline: true },
       { name: 'Program Scene', value: `${this.obs.programSceneName}\n\`${this.obs.programSources.map(s=>s.status).join('\n')}\``, inline: true }
     )
@@ -88,6 +192,25 @@ module.exports.CommandManager = class {
   
   #timestamp() {
     return new Date().toLocaleString( 'sv', { timeZoneName: 'short' } );
+  }
+
+
+  /**
+   * @param {SelectMenuInteraction} interaction
+   */
+  async #select(interaction) {
+    switch (interaction.customId) {
+      case "selectPreviewDB":
+        this.obs.setPreviewSourceVolume(parseFloat(interaction.values[0]));
+        break;
+      default:
+        console.log("Select menu id: "+interaction.customId+" value: "+interaction.values[0])
+    }
+    try {
+      await interaction.reply({content: null, ephemeral: true});
+    } catch (err) {
+      // Expect an error because content is null, so do nothing
+    }
   }
 
 
@@ -101,6 +224,33 @@ module.exports.CommandManager = class {
         break;
       case "downScene":
         this.obs.nextPreviewScene();
+        break;
+      case "transition":
+        this.obs.transition();
+        break;
+      case "progLouder":
+        this.obs.nudgeProgramLouder();
+        break;
+      case "progSofter":
+        this.obs.nudgeProgramSofter();
+        break;
+      case "prevLouder":
+        this.obs.nudgePreviewLouder();
+        break;
+      case "prevSofter":
+        this.obs.nudgePreviewSofter();
+        break;
+      case "prevPlayPause":
+        this.obs.playPausePreviewSource();
+        break;
+      case "prevReload":
+        this.obs.reloadPreviewSource();
+        break;
+      case "progPlayPause":
+        this.obs.playPauseProgramSource();
+        break;
+      case "progReload":
+        this.obs.reloadProgramSource();
         break;
       default:
         console.log("Button click id: "+interaction.customId)
@@ -127,14 +277,41 @@ module.exports.CommandManager = class {
           })
           interaction.reply(content);
           break;
-        case "status":
+        case "target_volume":
+          let db_target = interaction.options.getNumber('db')
+          if (db_target > 0) {
+            interaction.reply("Requested target greater than 0 dB. Ignoring...");
+          } else {
+            this.obs.transitionTargetDB = db_target;
+            interaction.reply(`Transition target volume set to ${db_target} dB`)
+          }
+          break;
+          case "preview_volume":
+            let db_prev = interaction.options.getNumber('db')
+            if (db_prev > 0) {
+              interaction.reply("Requested target greater than 0 dB. Ignoring...");
+            } else {
+              this.obs.setPreviewSourceVolume(db_prev)
+              interaction.reply(`Preview source volume set to ${db_prev} dB`)
+            }
+            break;
+          case "mute_preview":
+            let muted = interaction.options.getBoolean('muted')
+            if (muted) {
+              this.obs.mutePreviewSource();
+              interaction.reply('Muted preview source')
+            } else {
+              this.obs.unmutePreviewSource();
+              interaction.reply("Unmuted preview source")
+            }
+            break;
+          case "status":
         default:
           interaction.reply({content: "Creating new status box...", fetchReply: false});
           this.#newStatusBox();  
       }
     }  
   }
-
 
   /**
    * @param {Interaction} interaction
@@ -148,6 +325,8 @@ module.exports.CommandManager = class {
       this.#command(interaction);
     } else if (interaction.isButton()) {
       this.#button(interaction)
+    } else if (interaction.isSelectMenu()) {
+      this.#select(interaction)
     }
   }
 
