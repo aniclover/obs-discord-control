@@ -10,6 +10,10 @@ const commands = [
     .setDescription('Control OBS (#obs-hub-control only')
     .addSubcommand(subcommand =>
       subcommand
+        .setName('reboot')
+        .setDescription('Reboot this bot.'))
+    .addSubcommand(subcommand =>
+      subcommand
         .setName('status')
         .setDescription('Create new status box'))
     .addSubcommand(subcommand =>
@@ -304,6 +308,9 @@ module.exports.CommandManager = class {
               this.obs.unmutePreviewSource();
               interaction.reply("Unmuted preview source")
             }
+            break;
+          case "reboot":
+            process.exit();
             break;
           case "status":
         default:
