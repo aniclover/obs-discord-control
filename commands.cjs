@@ -107,7 +107,15 @@ const sceneButtonActionRow = new MessageActionRow()
     new MessageButton()
       .setCustomId('downScene')
       .setEmoji('⬇️')
-      .setStyle('PRIMARY')
+      .setStyle('PRIMARY'),
+    new MessageButton()
+      .setCustomId('ttRetract')
+      .setEmoji('⬅️')
+      .setStyle('DANGER'),
+      new MessageButton()
+      .setCustomId('ttAdvance')
+      .setEmoji('➡️')
+      .setStyle('DANGER')
   )
 
 
@@ -255,6 +263,12 @@ module.exports.CommandManager = class {
         break;
       case "progReload":
         this.obs.reloadProgramSource();
+        break;
+      case "ttAdvance":
+        this.obs.ttAdvance();
+        break;
+      case "ttRetract":
+        this.obs.ttRetract();
         break;
       default:
         console.log("Button click id: "+interaction.customId)

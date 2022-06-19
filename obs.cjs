@@ -120,6 +120,18 @@ module.exports.ObsManager = class {
     }, this.transitionVisualDelaySecs*1000)
   }
 
+  async ttAdvance() {
+    if (!this.isConnected) return;
+
+    this.#timetable('advance')
+  }
+
+  async ttRetract() {
+    if (!this.isConnected) return;
+
+    this.#timetable('retract')
+  }
+
   async nudgeProgramSofter() {
     if (!this.isConnected) return;
 
