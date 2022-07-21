@@ -152,7 +152,7 @@ const programDBSelectRow = new MessageActionRow()
     new MessageSelectMenu()
       .setCustomId('selectProgramDB')
       .setPlaceholder('Program dB')
-      .addOptions(dbOptions)
+      .addOptions([ { label: "N/A", value: "N/A"} ])
   )
 
 
