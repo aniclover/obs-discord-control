@@ -100,6 +100,34 @@ module.exports.ObsManager = class {
     this.#reloadSource(this.programSources[0].sourceName);
   }
 
+  async retransformPreviewSource() {
+    if (!this.isConnected || this.previewSources.length < 1) return;
+
+    let sceneName = this.previewScene;
+    let sceneItemName = this.previewSources[0].sourceName;
+
+    let properties = await this.obs.send('GetSceneItemProperties', { "scene-name": sceneName, "item": sceneItemName });
+    // console.log(properties);
+
+    let width = properties.sourceWidth;
+    let height = properties.sourceHeight;
+    let scale = 1;
+
+    if (Math.abs(1920 - width) < Math.abs(1080 - height)) {
+      // Width needs less scaling, so scale to width
+      scale = 1920.0 / width;
+    } else {
+      // Height needs less scaling, so scale to height
+      scale = 1080.0 / height;
+    }
+
+    let newProps = { "scene-name": sceneName, "item": sceneItemName }
+    newProps.position = { 'x': 1920/2, 'y': 1080/2, 'alignment': 0 };
+    newProps.scale = { 'x': scale, 'y': scale }
+    
+    this.obs.send('SetSceneItemProperties', newProps);
+  }
+
   async transition() {
     if (!this.isConnected) return;
 

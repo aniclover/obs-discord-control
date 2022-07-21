@@ -89,6 +89,10 @@ const previewButtonActionRow = new MessageActionRow()
       .setEmoji('🔃')
       .setStyle('PRIMARY'),
     new MessageButton()
+      .setCustomId('prevRetransform')
+      .setEmoji('🖼️')
+      .setStyle('PRIMARY'),
+    new MessageButton()
       .setCustomId('prevSofter')
       .setEmoji('🔈')
       .setStyle('PRIMARY'),
@@ -257,6 +261,9 @@ module.exports.CommandManager = class {
         break;
       case "prevReload":
         this.obs.reloadPreviewSource();
+        break;
+      case "prevRetransform":
+        this.obs.retransformPreviewSource();
         break;
       case "progPlayPause":
         this.obs.playPauseProgramSource();
