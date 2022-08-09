@@ -103,8 +103,9 @@ module.exports.ObsManager = class {
   async retransformPreviewSource() {
     if (!this.isConnected || this.previewSources.length < 1) return;
 
-    let sceneName = this.previewScene;
+    let sceneName = this.previewSceneName;
     let sceneItemName = this.previewSources[0].sourceName;
+    console.log(`GetSceneItemProperties: ${sceneName} / ${sceneItemName}`);
 
     let properties = await this.obs.send('GetSceneItemProperties', { "scene-name": sceneName, "item": sceneItemName });
     // console.log(properties);
