@@ -4,3 +4,6 @@ control_channel_id: "12345567890123456"
 control_server_id: "23456789012345"
 ossrs_server_host: your.server.fqdn
 obs_hub_ws_address: localhost:4444
+
+#Valid values: advance | retract | none
+tt_transition_direction: advance

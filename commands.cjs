@@ -159,6 +159,9 @@ const programDBSelectRow = new MessageActionRow()
 module.exports.CommandManager = class {
   /** @type {ObsManager} */
   obs = null;
+
+  /** @type {SrsManager} */
+  srs = null;
   
   /** @type {Channel} */
   channel = null;
@@ -198,7 +201,7 @@ module.exports.CommandManager = class {
     statusEmbed.setFooter({ text: `Last updated: ${this.#timestamp()}` });
     statusEmbed.setFields(
       // { name: '\u200B', value: '\u200B' },
-      { name: 'RTMP Server', value: 'Not yet implemented' },
+      { name: 'RTMP Server', value: this.srs.streamListMsg },
       // { name: '\u200B', value: '\u200B' },
       { name: 'OBS Hub', value: `Connected: \`${this.obs.isConnected}\`\nTransition Target Volume: \`${this.obs.transitionTargetDB} dB\`\nTransition Crossfade: \`${this.obs.transitionCrossfadeDurationSecs} sec\`\nTransition Visual Delay: \`${this.obs.transitionVisualDelaySecs} sec\`` },
       { name: 'Preview Scene', value: `${this.obs.previewSceneName}\n\`${this.obs.previewSources.map(s=>s.status).join('\n')}\``, inline: true },
@@ -368,6 +371,7 @@ module.exports.CommandManager = class {
   }
 
   priorityUpdate() {
+    console.log("Sending Discord priority update")
     this.#updateStatusTick();
   }
 
@@ -375,7 +379,7 @@ module.exports.CommandManager = class {
    * @param nconf
    * @param {ObsManager} obsManager
    */
-  constructor(nconf, obsManager) {
+  constructor(nconf, obsManager, srsManager) {
     const BOT_TOKEN = nconf.get('discord_bot_token')
     const CLIENT_ID = nconf.get('discord_bot_client_id')
     const GUILD_ID = nconf.get('control_server_id')
@@ -383,6 +387,7 @@ module.exports.CommandManager = class {
     const rest = new REST({ version: '9' }).setToken(BOT_TOKEN);
 
     this.obs = obsManager;
+    this.srs = srsManager;
   
     (async () => {
       try {

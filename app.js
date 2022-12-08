@@ -1,5 +1,5 @@
 const nconf = require('nconf')
-const axios = require('axios')
+// const axios = require('axios')
 
 nconf.file({
   file: 'config.yaml',
@@ -7,10 +7,13 @@ nconf.file({
 });
 
 const { ObsManager } = require('./obs.cjs')
-const obs = new ObsManager(nconf.get('obs_hub_ws_address'), priorityUpdate)
+const obs = new ObsManager(nconf, priorityUpdate)
+
+const { SrsManager } = require('./srs.cjs')
+const srs = new SrsManager(nconf.get('srs_server_host'), priorityUpdate)
 
 const { CommandManager } = require('./commands.cjs')
-const commands = new CommandManager(nconf, obs)
+const commands = new CommandManager(nconf, obs, srs)
 
 
 const { Client, Intents } = require('discord.js')

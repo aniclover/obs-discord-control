@@ -27,6 +27,7 @@ module.exports.ObsManager = class {
   #priorityUpdateCallback = null
   #priorityUpdateTimeout = null
   #lastPriorityUpdateTS = 0
+  #ttTransitionDirection = "none"
 
   async fetchSceneList() {
     if (!this.isConnected) return;
@@ -145,7 +146,11 @@ module.exports.ObsManager = class {
     // Delay by tansitionVisualDelaySecs before triggering OBS transition
     setTimeout( () => {
       this.obs.send('TransitionToProgram');
-      this.#timetable('advance')  
+      if (this.#ttTransitionDirection === 'advance') {
+        this.#timetable('advance')  
+      } else if (this.#ttTransitionDirection === 'retract') {
+        this.#timetable('retract')
+      }
     }, this.transitionVisualDelaySecs*1000)
   }
 
@@ -293,8 +298,10 @@ module.exports.ObsManager = class {
     }
   }
 
-  constructor(obsAddress, priorityUpdateFunc) {
-    this.obsAddress = obsAddress
+  constructor(nconf, priorityUpdateFunc) {
+    this.obsAddress = nconf.get('obs_hub_ws_address')
+
+    this.#ttTransitionDirection = nconf.get('tt_transition_direction')
     this.#reconnectInterval = setInterval(() => { this.#connectOBS() }, RECONNECT_INTERVAL_MS)
     
     this.obs.on('ConnectionOpened', () => { this.#onOBSConnected() })
