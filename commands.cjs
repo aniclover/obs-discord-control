@@ -1,8 +1,6 @@
-const { REST } = require('@discordjs/rest');
-const { Routes } = require('discord-api-types/v9');
-const { SlashCommandBuilder } = require('@discordjs/builders');
+
 const { ObsManager } = require('./obs.cjs');
-const { Interaction, Channel, Message, MessageEmbed, MessageActionRow, MessageButton, MessageSelectMenu, SelectMenuInteraction } = require('discord.js');
+const { REST, Routes, Interaction, Channel, Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, StringSelectMenuBuilder, SelectMenuInteraction, SlashCommandBuilder } = require('discord.js');
 
 const commands = [
   new SlashCommandBuilder()
@@ -49,77 +47,77 @@ const commands = [
 const STATUSBOX_UPDATE_INTERVAL_MS = 10000;
 const STATUSBOX_TTL_MS = 24*60*60*1000;
 
-const statusEmbed = new MessageEmbed()
+const statusEmbed = new EmbedBuilder()
   .setColor('#0099ff')
   .setTitle('OBS Hub Status');
 
-const programButtonActionRow = new MessageActionRow()
+const programButtonActionRow = new ActionRowBuilder()
   .addComponents(
-    new MessageButton()
+    new ButtonBuilder()
       .setCustomId('progPlayPause')
       .setEmoji('⏯️')
-      .setStyle('DANGER'),
-    new MessageButton()
+      .setStyle('Danger'),
+    new ButtonBuilder()
       .setCustomId('progReload')
       .setEmoji('🔃')
-      .setStyle('DANGER'),
-    new MessageButton()
+      .setStyle('Danger'),
+    new ButtonBuilder()
       .setCustomId('transition')
       .setEmoji('↔️')
       .setLabel('T')
-      .setStyle('DANGER'),
-    new MessageButton()
+      .setStyle('Danger'),
+    new ButtonBuilder()
       .setCustomId('progSofter')
       .setEmoji('🔈')
-      .setStyle('DANGER'),
-    new MessageButton()
+      .setStyle('Danger'),
+    new ButtonBuilder()
       .setCustomId('progLouder')
       .setEmoji('🔊')
-      .setStyle('DANGER')
+      .setStyle('Danger')
   )
 
-const previewButtonActionRow = new MessageActionRow()
+const previewButtonActionRow = new ActionRowBuilder()
   .addComponents(
-    new MessageButton()
+    new ButtonBuilder()
       .setCustomId('prevPlayPause')
       .setEmoji('⏯️')
-      .setStyle('PRIMARY'),
-    new MessageButton()
+      .setStyle('Primary'),
+    new ButtonBuilder()
       .setCustomId('prevReload')
       .setEmoji('🔃')
-      .setStyle('PRIMARY'),
-    new MessageButton()
+      .setStyle('Primary'),
+    new ButtonBuilder()
       .setCustomId('prevRetransform')
       .setEmoji('🖼️')
-      .setStyle('PRIMARY'),
-    new MessageButton()
+      .setStyle('Primary'),
+    new ButtonBuilder()
       .setCustomId('prevSofter')
       .setEmoji('🔈')
-      .setStyle('PRIMARY'),
-    new MessageButton()
+      .setStyle('Primary'),
+    new ButtonBuilder()
       .setCustomId('prevLouder')
       .setEmoji('🔊')
-      .setStyle('PRIMARY')
+      .setStyle('Primary')
   )
 
-const sceneButtonActionRow = new MessageActionRow()
+const sceneButtonActionRow = new ActionRowBuilder()
   .addComponents(
-    new MessageButton()
+    new ButtonBuilder()
       .setCustomId('upScene')
       .setEmoji('⬆️')
-      .setStyle('PRIMARY'),
-    new MessageButton()
+      .setStyle('Primary'),
+    new ButtonBuilder()
       .setCustomId('downScene')
       .setEmoji('⬇️')
-      .setStyle('PRIMARY'),
-    new MessageButton()
+      .setStyle('Primary'),
+    new ButtonBuilder()
       .setCustomId('ttRetract')
       .setEmoji('⬅️')
-      .setStyle('DANGER'),
-      new MessageButton()
+      .setStyle('Danger'),
+      new ButtonBuilder()
       .setCustomId('ttAdvance')
       .setEmoji('➡️')
-      .setStyle('DANGER')
+      .setStyle('Danger')
   )
 
 
@@ -139,17 +137,17 @@ const dbOptions = [
   { label: '-30 dB', value: '-30' }
 ]
 
-const previewDBSelectRow = new MessageActionRow()
+const previewDBSelectRow = new ActionRowBuilder()
   .addComponents(
-    new MessageSelectMenu()
+    new StringSelectMenuBuilder()
       .setCustomId('selectPreviewDB')
       .setPlaceholder('Preview dB')
       .addOptions(dbOptions)
   )
 
-const programDBSelectRow = new MessageActionRow()
+const programDBSelectRow = new ActionRowBuilder()
   .addComponents(
-    new MessageSelectMenu()
+    new StringSelectMenuBuilder()
       .setCustomId('selectProgramDB')
       .setPlaceholder('Program dB')
       .addOptions([ { label: "N/A", value: "N/A"} ])

@@ -16,7 +16,7 @@ const { CommandManager } = require('./commands.cjs')
 const commands = new CommandManager(nconf, obs, srs)
 
 
-const { Client, Intents } = require('discord.js')
+const { Client, GatewayIntentBits } = require('discord.js')
 const BOT_TOKEN = nconf.get('discord_bot_token')
 const CHANNEL_ID = nconf.get('control_channel_id')
 
@@ -24,7 +24,7 @@ function priorityUpdate() {
   commands.priorityUpdate();
 }
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.on('ready', async () => {
   let channel = await client.channels.fetch(CHANNEL_ID)

@@ -1,4 +1,4 @@
-const OBSWebSocket = require('obs-websocket-js')
+const OBSWebSocket = require('obs-websocket-js').default
 
 const RECONNECT_INTERVAL_MS = 5000
 
@@ -32,7 +32,7 @@ module.exports.ObsManager = class {
   async fetchSceneList() {
     if (!this.isConnected) return;
 
-    let data = await this.obs.send('GetSceneList');
+    let data = await this.obs.call('GetSceneList');
     this.scenes = data.scenes;
 
     return this.scenes;
@@ -44,7 +44,7 @@ module.exports.ObsManager = class {
     let index = this.previewSceneIndex;
     index++;
     if (index < this.scenes.length) {
-      this.obs.send("SetPreviewScene", {'scene-name': this.scenes[index].name});
+      this.obs.call("SetCurrentPreviewScene", {sceneName: this.scenes[index].sceneName});
     }
   }
 
@@ -54,7 +54,7 @@ module.exports.ObsManager = class {
     let index = this.previewSceneIndex;
     index--;
     if (index >= 0) {
-      this.obs.send("SetPreviewScene", {'scene-name': this.scenes[index].name});
+      this.obs.call("SetCurrentPreviewScene", {sceneName: this.scenes[index].sceneName});
     }
   }
 
@@ -80,13 +80,13 @@ module.exports.ObsManager = class {
   async playPausePreviewSource() {
     if (!this.isConnected || this.previewSources.length < 1) return;
 
-    this.obs.send('PlayPauseMedia', { sourceName: this.previewSources[0].sourceName });
+    this.#togglePlayPause(this.previewSources[0].sourceName)
   }
 
   async playPauseProgramSource() {
     if (!this.isConnected || this.programSources.length < 1) return;
 
-    this.obs.send('PlayPauseMedia', { sourceName: this.programSources[0].sourceName });
+    this.#togglePlayPause(this.programSources[0].sourceName)
   }
 
   async reloadPreviewSource() {
@@ -106,13 +106,14 @@ module.exports.ObsManager = class {
 
     let sceneName = this.previewSceneName;
     let sceneItemName = this.previewSources[0].sourceName;
+    let sceneItemId = this.previewSources[0].sceneItemId;
     console.log(`GetSceneItemProperties: ${sceneName} / ${sceneItemName}`);
 
-    let properties = await this.obs.send('GetSceneItemProperties', { "scene-name": sceneName, "item": sceneItemName });
+    let properties = await this.obs.call('GetSceneItemTransform', { sceneName: sceneName, sceneItemId: sceneItemId });
     // console.log(properties);
 
-    let width = properties.sourceWidth;
-    let height = properties.sourceHeight;
+    let width = properties.sceneItemTransform.sourceWidth;
+    let height = properties.sceneItemTransform.sourceHeight;
     let scale = 1;
 
     if (Math.abs(1920 - width) < Math.abs(1080 - height)) {
@@ -123,18 +124,28 @@ module.exports.ObsManager = class {
       scale = 1080.0 / height;
     }
 
-    let newProps = { "scene-name": sceneName, "item": sceneItemName }
-    newProps.position = { 'x': 1920/2, 'y': 1080/2, 'alignment': 0 };
-    newProps.scale = { 'x': scale, 'y': scale }
+    let newProps = { }
+    newProps.positionX = 1920/2;
+    newProps.positionY = 1080/2;
+    newProps.alignment = 0;
+    newProps.scaleX = scale;
+    newProps.scaleY = scale;
+    // newProps.width = width*scale;
+    // newProps.height = height*scale;
+    console.log(newProps)
     
-    this.obs.send('SetSceneItemProperties', newProps);
+    this.obs.call('SetSceneItemTransform', {sceneName: sceneName, sceneItemId: sceneItemId, sceneItemTransform: newProps });
   }
 
   async transition() {
     if (!this.isConnected) return;
 
+
     if (this.previewSources.length > 0) {
       let previewSource = this.previewSources[0];
+      // console.log("Transition to: ")
+      // console.log(previewSource)
+
       if (previewSource.isLocal) {
         this.#playSource(previewSource.sourceName);
       }
@@ -145,7 +156,7 @@ module.exports.ObsManager = class {
 
     // Delay by tansitionVisualDelaySecs before triggering OBS transition
     setTimeout( () => {
-      this.obs.send('TransitionToProgram');
+      this.obs.call('TriggerStudioModeTransition');
       if (this.#ttTransitionDirection === 'advance') {
         this.#timetable('advance')  
       } else if (this.#ttTransitionDirection === 'retract') {
@@ -192,6 +203,14 @@ module.exports.ObsManager = class {
     this.transitionTargetDB += NUDGE_DB
   }
 
+  async #togglePlayPause(sourceName) {
+    const data = await this.obs.call("GetMediaInputStatus", {inputName: sourceName});
+    if (data.mediaState == "OBS_MEDIA_STATE_PLAYING") {
+      this.obs.call('TriggerMediaInputAction', { inputName: sourceName, mediaAction: "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PAUSE" })
+    } else {
+      this.obs.call('TriggerMediaInputAction', { inputName: sourceName, mediaAction: "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PLAY" })
+    }
+  }
 
   async #crossfadeTransitionToTarget() {
     if (!this.isConnected || this.programSources.length < 1 || this.previewSources.length < 1) return;
@@ -253,15 +272,15 @@ module.exports.ObsManager = class {
   }
 
   async #reloadSource(sourceName) {
-    let data = await this.obs.send('GetSourceSettings', { sourceName: sourceName })
-    this.obs.send('SetSourceSettings', {
-      sourceName: sourceName,
-      sourceSettings: data.sourceSettings
+    let data = await this.obs.call('GetInputSettings', { inputName: sourceName })
+    this.obs.call('SetInputSettings', {
+      inputName: sourceName,
+      inputSettings: data.inputSettings
     })
   }
 
   async #setMute(sourceName, isMuted) {
-    await this.obs.send("SetMute", { source: sourceName, mute: isMuted })
+    await this.obs.call("SetInputMute", { inputName: sourceName, inputMuted: isMuted })
   }
   
   async #changeDeltaProgramDB(deltaDB) {
@@ -281,20 +300,21 @@ module.exports.ObsManager = class {
   }
 
   async #playSource(sourceName) {
-    await this.obs.send("PlayPauseMedia", {sourceName: sourceName, playPause:false})
+    // console.log("#playSource: "+sourceName)
+    await this.obs.call('TriggerMediaInputAction', { inputName: sourceName, mediaAction: "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PLAY"})
   }
 
   async #changeDB(sourceName, newDB) {
-    await this.obs.send('SetVolume', { source: sourceName, volume: newDB, useDecibel: true})
+    await this.obs.call('SetInputVolume', { inputName: sourceName, inputVolumeDb: newDB })
   }
 
   #timetable (direction) {
     if (direction === 'retract') {
-      // this.obs.send('TriggerHotkeyByName', { hotkeyName: 'ROTATE_ccw' })
-      this.obs.send('TriggerHotkeyBySequence', { keyId: 'OBS_KEY_NUMASTERISK' })
+      // this.obs.call('TriggerHotkeyByName', { hotkeyName: 'ROTATE_ccw' })
+      this.obs.call('TriggerHotkeyByKeySequence', { keyId: 'OBS_KEY_NUMASTERISK' })
     } else {
-      // this.obs.send('TriggerHotkeyByName', { hotkeyName: 'ROTATE_cw' })
-      this.obs.send('TriggerHotkeyBySequence', { keyId: 'OBS_KEY_NUMMINUS' })
+      // this.obs.call('TriggerHotkeyByName', { hotkeyName: 'ROTATE_cw' })
+      this.obs.call('TriggerHotkeyByKeySequence', { keyId: 'OBS_KEY_NUMMINUS' })
     }
   }
 
@@ -304,43 +324,43 @@ module.exports.ObsManager = class {
     this.#ttTransitionDirection = nconf.get('tt_transition_direction')
     this.#reconnectInterval = setInterval(() => { this.#connectOBS() }, RECONNECT_INTERVAL_MS)
     
-    this.obs.on('ConnectionOpened', () => { this.#onOBSConnected() })
+    // this.obs.on('ConnectionOpened', () => { this.#onOBSConnected() })
     this.obs.on('ConnectionClosed', () => { this.#onOBSDisconnected() })
-    this.obs.on('SwitchScenes', async (data) => {
+    this.obs.on('CurrentProgramSceneChanged', async (data) => {
       await this.#updateProgramScene(data.sceneName);
       this.#priorityUpdate();
     })
-    this.obs.on('PreviewSceneChanged', async (data) => {
+    this.obs.on('CurrentPreviewSceneChanged', async (data) => {
       await this.#updatePreviewScene(data.sceneName)
       this.#priorityUpdate()
     })
-    this.obs.on('SourceVolumeChanged', (data) => {
-      if (this.previewSources.length > 0 && data.sourceName === this.previewSources[0].sourceName) {
-        this.previewSources[0].dB = data.volumeDb;
+    this.obs.on('InputVolumeChanged', (data) => {
+      if (this.previewSources.length > 0 && data.inputName === this.previewSources[0].sourceName) {
+        this.previewSources[0].dB = data.inputVolumeDb;
         this.previewSources[0].status = this.#makeSourceStatus(this.previewSources[0])
-      } else if (this.programSources.length > 0 && data.sourceName === this.programSources[0].sourceName) {
-        this.programSources[0].dB = data.volumeDb;
+      } else if (this.programSources.length > 0 && data.inputName === this.programSources[0].sourceName) {
+        this.programSources[0].dB = data.inputVolumeDb;
         this.programSources[0].status = this.#makeSourceStatus(this.programSources[0])
       } else {
         return;
       }
       this.#priorityUpdate()
     })
-    this.obs.on('SourceMuteStateChanged', (data) => {
-      if (this.previewSources.length > 0 && data.sourceName === this.previewSources[0].sourceName) {
-        this.previewSources[0].muted = data.muted;
+    this.obs.on('InputMuteStateChanged', (data) => {
+      if (this.previewSources.length > 0 && data.inputName === this.previewSources[0].sourceName) {
+        this.previewSources[0].muted = data.inputMuted;
         this.previewSources[0].status = this.#makeSourceStatus(this.previewSources[0])
-      } else if (this.programSources.length > 0 && data.sourceName === this.programSources[0].sourceName) {
-        this.programSources[0].muted = data.muted;
+      } else if (this.programSources.length > 0 && data.inputName === this.programSources[0].sourceName) {
+        this.programSources[0].muted = data.inputMuted;
         this.programSources[0].status = this.#makeSourceStatus(this.programSources[0])
       } else {
         return;
       }
       this.#priorityUpdate()
     })
-    this.obs.on('error', err => {
-      this.#onOBSError(err)
-    })
+    // this.obs.on('error', err => {
+    //   this.#onOBSError(err)
+    // })
 
     this.#priorityUpdateCallback = priorityUpdateFunc
   }
@@ -370,7 +390,7 @@ module.exports.ObsManager = class {
   #findSceneIndex(sceneName) {
     // console.log(`findScene("${sceneName}")`)
     for (var i = 0; i < this.scenes.length; i++) {
-      if (this.scenes[i].name === sceneName) {
+      if (this.scenes[i].sceneName === sceneName) {
         return i
       }
     }
@@ -390,16 +410,12 @@ module.exports.ObsManager = class {
   #connectOBS() {
     this.#initOBS()
 
-    let secure = false
     let parsedAddress = this.obsAddress
-    if (this.obsAddress.startsWith('wss://')) {
-      secure = true
-      parsedAddress = this.obsAddress.slice(6)
-    } else if (this.obsAddress.startsWith('ws://')) {
-      secure = false
-      parsedAddress = this.obsAddress.slice(5)
-    }
-    this.obs.connect({ address: parsedAddress, secure })
+
+    this.obs.connect( parsedAddress )
+      .then( () => {
+        this.#onOBSConnected();
+      })
       .catch(err => {
         // this.onOBSError(err)
         console.log("Error connecting to OBS at "+this.obsAddress)
@@ -429,17 +445,18 @@ module.exports.ObsManager = class {
   }
 
   async #fetchSources(sceneName) {
-    let response = await this.obs.send('GetSceneItemList', {sceneName: sceneName});
-    let sources = response.sceneItems.filter(s => s.sourceKind==="ffmpeg_source");
+    let response = await this.obs.call('GetSceneItemList', {sceneName: sceneName});
+    let sources = response.sceneItems.filter(s => s.inputKind==="ffmpeg_source");
     for (const s of sources) {
-      let vol = await this.obs.send('GetVolume', {source: s.sourceName, useDecibel: true})
-      let {sourceSettings} = await this.obs.send('GetSourceSettings', {sourceName: s.sourceName});
+      let volData = await this.obs.call('GetInputVolume', {inputName: s.sourceName})
+      let muteData = await this.obs.call('GetInputMute', {inputName: s.sourceName})
+      let sourceSettings = await this.obs.call('GetInputSettings', {inputName: s.sourceName});
       // console.log(sourceSettings);
 
-      s.dB = vol.volume;
-      s.muted = vol.muted;
+      s.dB = volData.inputVolumeDb;
+      s.muted = muteData.inputMuted;
       s.status = this.#makeSourceStatus(s)
-      s.isLocal = sourceSettings.is_local_file
+      s.isLocal = sourceSettings.inputSettings.is_local_file
     }
     return sources;
   }
@@ -463,11 +480,11 @@ module.exports.ObsManager = class {
     this.isConnected = true
 
     this.scenes = await this.fetchSceneList();
-    let programScene = await this.obs.send('GetCurrentScene');
-    await this.#updateProgramScene(programScene.name)
+    let programScene = await this.obs.call('GetCurrentProgramScene');
+    await this.#updateProgramScene(programScene.currentProgramSceneName)
     try {
-      let previewScene = await this.obs.send('GetPreviewScene');
-      await this.#updatePreviewScene(previewScene.name)
+      let previewScene = await this.obs.call('GetCurrentPreviewScene');
+      await this.#updatePreviewScene(previewScene.currentPreviewSceneName)
     } catch (err) {
       console.log(err);
     }
