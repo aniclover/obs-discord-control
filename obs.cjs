@@ -17,6 +17,8 @@ module.exports.ObsManager = class {
   previewSceneIndex = -1
   programSources = []
   previewSources = []
+  rtmpAllSources = []
+  rtmpAllMap = {}
   scenes = []
   transitionTargetDB = -10;
   transitionCrossfadeDurationSecs = 10;
@@ -431,6 +433,7 @@ module.exports.ObsManager = class {
     this.programSceneIndex = this.#findSceneIndex(name)
 
     this.programSources = await this.#fetchSources(name);
+    this.#syncRtmpAll();
   }
 
   async #updatePreviewScene(name) {
@@ -441,6 +444,23 @@ module.exports.ObsManager = class {
 
     if (this.previewSources.length > 0 && this.previewSources[0]) {
       this.transitionTargetDB = this.previewSources[0].dB;
+    }
+    this.#syncRtmpAll();
+  }
+
+  async #syncRtmpAll() {
+    const trackMap = new Map(this.rtmpAllMap);
+
+    for (const s of this.programSources.concat(this.previewSources)) {
+      const rs = trackMap.get(s.sourceName)
+      if (rs) {
+        trackMap.delete(s.sourceName)
+        await this.obs.call('SetSceneItemEnabled', {sceneName: "RTMP All", sceneItemId: rs.sceneItemId, sceneItemEnabled: true})
+      }
+    }
+
+    for (const rs of trackMap.values()) {
+      await this.obs.call('SetSceneItemEnabled', {sceneName: "RTMP All", sceneItemId: rs.sceneItemId, sceneItemEnabled: false})
     }
   }
 
@@ -480,6 +500,17 @@ module.exports.ObsManager = class {
     this.isConnected = true
 
     this.scenes = await this.fetchSceneList();
+    for (const scene of this.scenes) {
+      if (scene.sceneName == "RTMP All") {
+        this.rtmpAllSources = await this.#fetchSources(scene.sceneName);
+        console.log("Fetched RTMP All sources. Count: "+this.rtmpAllSources.length)
+        this.rtmpAllMap = new Map(this.rtmpAllSources.map((s) => [s.sourceName, s]));
+        for (const s of this.rtmpAllSources) {
+          // console.log(s)
+          await this.obs.call('SetSceneItemEnabled', {sceneName: "RTMP All", sceneItemId: s.sceneItemId, sceneItemEnabled: false});
+        }
+      }
+    }
     let programScene = await this.obs.call('GetCurrentProgramScene');
     await this.#updateProgramScene(programScene.currentProgramSceneName)
     try {
