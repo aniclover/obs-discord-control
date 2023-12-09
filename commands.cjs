@@ -104,11 +104,11 @@ const sceneButtonActionRow = new ActionRowBuilder()
   .addComponents(
     new ButtonBuilder()
       .setCustomId('upScene')
-      .setEmoji('⬆️')
+      .setEmoji('➕')
       .setStyle('Primary'),
     new ButtonBuilder()
       .setCustomId('downScene')
-      .setEmoji('⬇️')
+      .setEmoji('➖')
       .setStyle('Primary'),
     new ButtonBuilder()
       .setCustomId('ttRetract')
