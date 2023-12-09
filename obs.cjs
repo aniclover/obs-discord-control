@@ -159,24 +159,27 @@ module.exports.ObsManager = class {
     // Delay by tansitionVisualDelaySecs before triggering OBS transition
     setTimeout( () => {
       this.obs.call('TriggerStudioModeTransition');
-      if (this.#ttTransitionDirection === 'advance') {
-        this.#timetable('advance')  
-      } else if (this.#ttTransitionDirection === 'retract') {
-        this.#timetable('retract')
-      }
+      this.ttAdvance();
     }, this.transitionVisualDelaySecs*1000)
   }
 
   async ttAdvance() {
     if (!this.isConnected) return;
 
-    this.#timetable('advance')
+    if (this.#ttTransitionDirection === 'advance') {
+      this.#timetable('advance')  
+    } else if (this.#ttTransitionDirection === 'retract') {
+      this.#timetable('retract')
+    }
   }
 
   async ttRetract() {
     if (!this.isConnected) return;
-
-    this.#timetable('retract')
+    if (this.#ttTransitionDirection === 'advance') {
+      this.#timetable('retract')  
+    } else if (this.#ttTransitionDirection === 'retract') {
+      this.#timetable('advance')
+    }
   }
 
   async nudgeProgramSofter() {
