@@ -278,6 +278,7 @@ module.exports.ObsManager = class {
 
   async #reloadSource(sourceName) {
     let data = await this.obs.call('GetInputSettings', { inputName: sourceName })
+    await this.obs.call('TriggerMediaInputAction', { inputName: sourceName, mediaAction: "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_RESTART"})
     this.obs.call('SetInputSettings', {
       inputName: sourceName,
       inputSettings: data.inputSettings
