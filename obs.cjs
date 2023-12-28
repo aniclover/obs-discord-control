@@ -469,6 +469,7 @@ module.exports.ObsManager = class {
   }
 
   async #fetchSources(sceneName) {
+
     let response = await this.obs.call('GetSceneItemList', {sceneName: sceneName});
     let sources = response.sceneItems.filter(s => s.inputKind==="ffmpeg_source");
     for (const s of sources) {
