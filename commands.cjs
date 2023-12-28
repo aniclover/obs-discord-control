@@ -213,8 +213,8 @@ module.exports.CommandManager = class {
       { name: 'RTMP Server', value: this.srs.streamListMsg },
       // { name: '\u200B', value: '\u200B' },
       { name: 'OBS Hub', value: `Connected: \`${this.obs.isConnected}\`\nTransition Target Volume: \`${this.obs.transitionTargetDB} dB\`\nTransition Crossfade: \`${this.obs.transitionCrossfadeDurationSecs} sec\`\nTransition Visual Delay: \`${this.obs.transitionVisualDelaySecs} sec\`` },
-      { name: 'Preview Scene', value: `${this.obs.previewSceneName}\n\`${programSourcesString}\``, inline: true },
-      { name: 'Program Scene', value: `${this.obs.programSceneName}\n\`${previewSourcesString}\``, inline: true }
+      { name: 'Preview Scene', value: `${this.obs.previewSceneName}\n\`${previewSourcesString}\``, inline: true },
+      { name: 'Program Scene', value: `${this.obs.programSceneName}\n\`${programSourcesString}\``, inline: true }
     )
   }
   
