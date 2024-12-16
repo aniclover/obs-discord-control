@@ -235,7 +235,8 @@ module.exports.CommandManager = class {
         console.log("Select menu id: "+interaction.customId+" value: "+interaction.values[0])
     }
     try {
-      await interaction.reply({content: null, ephemeral: true});
+      // await interaction.reply({content: null, ephemeral: true});
+      await interaction.deferUpdate();
     } catch (err) {
       // Expect an error because content is null, so do nothing
     }
