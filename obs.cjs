@@ -278,6 +278,7 @@ module.exports.ObsManager = class {
 
   async #reloadSource(sourceName) {
     let data = await this.obs.call('GetInputSettings', { inputName: sourceName })
+    await this.obs.call('TriggerMediaInputAction', { inputName: sourceName, mediaAction: "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_RESTART"})
     this.obs.call('SetInputSettings', {
       inputName: sourceName,
       inputSettings: data.inputSettings
@@ -468,6 +469,7 @@ module.exports.ObsManager = class {
   }
 
   async #fetchSources(sceneName) {
+
     let response = await this.obs.call('GetSceneItemList', {sceneName: sceneName});
     let sources = response.sceneItems.filter(s => s.inputKind==="ffmpeg_source");
     for (const s of sources) {

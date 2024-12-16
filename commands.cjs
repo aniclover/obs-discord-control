@@ -196,14 +196,25 @@ module.exports.CommandManager = class {
   }
 
   #updateEmbed() {
+    let previewSourcesString = "N/A"
+    let programSourcesString = "N/A"
+
+    if (this.obs.previewSceneName !== "RTMP All") {
+      previewSourcesString = this.obs.previewSources.map(s=>s.status).join('\n')
+    }
+
+    if (this.obs.programSceneName !== "RTMP All") {
+      programSourcesString = this.obs.programSources.map(s=>s.status).join('\n')
+    }
+
     statusEmbed.setFooter({ text: `Last updated: ${this.#timestamp()}` });
     statusEmbed.setFields(
       // { name: '\u200B', value: '\u200B' },
       { name: 'RTMP Server', value: this.srs.streamListMsg },
       // { name: '\u200B', value: '\u200B' },
       { name: 'OBS Hub', value: `Connected: \`${this.obs.isConnected}\`\nTransition Target Volume: \`${this.obs.transitionTargetDB} dB\`\nTransition Crossfade: \`${this.obs.transitionCrossfadeDurationSecs} sec\`\nTransition Visual Delay: \`${this.obs.transitionVisualDelaySecs} sec\`` },
-      { name: 'Preview Scene', value: `${this.obs.previewSceneName}\n\`${this.obs.previewSources.map(s=>s.status).join('\n')}\``, inline: true },
-      { name: 'Program Scene', value: `${this.obs.programSceneName}\n\`${this.obs.programSources.map(s=>s.status).join('\n')}\``, inline: true }
+      { name: 'Preview Scene', value: `${this.obs.previewSceneName}\n\`${previewSourcesString}\``, inline: true },
+      { name: 'Program Scene', value: `${this.obs.programSceneName}\n\`${programSourcesString}\``, inline: true }
     )
   }
   
