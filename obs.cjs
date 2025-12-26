@@ -343,7 +343,10 @@ module.exports.ObsManager = class {
     this.obs.on('InputVolumeChanged', (data) => {
       if (this.previewSources.length > 0 && data.inputName === this.previewSources[0].sourceName) {
         this.previewSources[0].dB = data.inputVolumeDb;
-        this.transitionTargetDB = data.inputVolumeDb;
+
+        // Can't do this otherwise transition crossfade will interfere with itself
+        // this.transitionTargetDB = data.inputVolumeDb;
+
         this.previewSources[0].status = this.#makeSourceStatus(this.previewSources[0])
       } else if (this.programSources.length > 0 && data.inputName === this.programSources[0].sourceName) {
         this.programSources[0].dB = data.inputVolumeDb;
